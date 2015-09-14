@@ -3,14 +3,32 @@
 	#Fixes '…' when PDFd as ...
 	CorrectText("Changed ... to …", r'\.\.\.', r'…')
 
+	#Fixes 'η' when PDFd as ΐ]
+	CorrectText("Changed ΐ] to η", r'ΐ]', r'η')
+	
 	#Fixes 'στη' when PDFd as σιη
 	CorrectText("Changed σιη to στη", r'σιη', r'στη')
 
-	#Fixes 'στη' when PDFd as σιη
-	CorrectText("Changed σιη to στη", r' σι(ον|ο) ', r' στ\1 ')
+	#Fixes 'στ(η|ο|ον|α|ις|ην)' when PDFd as  '"οτ(η|ο|ον|α|ις|ην)'
+	CorrectText("Changed οτ(η|ο|ον|α|ις|ην) to στ(η|ο|ον|α|ις|ην)", r' οτ(η|ο|ον|α|ις|ην) ', r' στ\1 ')
+
+	#Fixes 'των' when PDFd as  'τ(οι|οι)ν'
+	CorrectText("Changed τ(οι|ιο)ν to των", r' τ(οι|ιο)ν ', r' των ')
+
+	#Fixes 'ού' when PDFd as  'οιί'
+	CorrectText("Changed οιί to ού", r'οιί', r'ού')
 
 	#Fixes 'στις' when PDFd as σιις
 	CorrectText("Changed σιις to στις", r'σιις', r'στις')
+
+	#Fixes 'στ(η|ο|ον|ην)' when PDFd as οτ(η|ο|ον|ην)
+	CorrectText("Changed οτ(η|ο|ον|ην) to στ(η|ο|ον|ην)", r' οτ(η|ο|ον|ην) ', r'στ\1')
+
+	#Fixes 'στ(ο|ου|α)' when PDFd as  σι(ο|ου|α)
+	CorrectText("Changed σι(ο|ου|α) to στ(ο|ου|α)", r' σι(ο|ου|α)', r'στ\1')
+
+	#Fixes 'ώ' when PDFd as ο'ι
+	CorrectText("Changed ο'ι to ώ", r'(ο\'ι|\(ί\))', r'ώ')
 	
 	#Fixes 'Άκουσ' when PDFd as Ακόυσ
 	CorrectText("Changed Ακόυσ to Άκουσ", r'Ακόυσ', r'Άκουσ')
