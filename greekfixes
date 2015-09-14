@@ -9,7 +9,7 @@
 	#Fixes 'στη' when PDFd as σιη
 	CorrectText("Changed σιη to στη", r'σιη', r'στη')
 
-	#Fixes 'στ(η|ο|ον|α|ις|ην)' when PDFd as  '"οτ(η|ο|ον|α|ις|ην)'
+	#Fixes 'στ(η|ο|ον|α|ις|ην)' when PDFd as  'οτ(η|ο|ον|α|ις|ην)'
 	CorrectText("Changed οτ(η|ο|ον|α|ις|ην) to στ(η|ο|ον|α|ις|ην)", r' οτ(η|ο|ον|α|ις|ην) ', r' στ\1 ')
 
 	#Fixes 'των' when PDFd as  'τ(οι|οι)ν'
