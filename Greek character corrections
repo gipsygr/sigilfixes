@@ -71,3 +71,6 @@
 
 	#Fixes \u03CD when PDFd as \u03B0
 	CorrectText("Changed ε' to έ", r'ε\'', r'έ')
+	
+	#Fixes ς Character when PDFd as ςCharacter
+	CorrectText("Changed ςCharacter to ς Character", r'ς([\x{0370}-\x{03CE}])', r'ς \1')
