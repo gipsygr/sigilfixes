@@ -1,4 +1,5 @@
-###########FIXES Π#############
+############FIXES Π###########
+#fixes but delete words
 def FixP(m):
 	"""
 	This function examines a word to see whether is required to fix the Π character that is misspelled.
@@ -7,7 +8,10 @@ def FixP(m):
 	otherwise it returns the word without the Π fixed
 	"""
 	FixP='Π'+m.group(2)
-	if spell(FixP):
+	FixP2=m.group(1)+m.group(2)
+	if spell(FixP2):
+		return(FixP2)
+	elif spell(FixP):
 		print("FixP removed from: ", FixP)
 		return(FixP)
 	else:
