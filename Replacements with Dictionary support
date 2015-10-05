@@ -1,49 +1,50 @@
-############FIXES Π###########
-#fixes but delete words
-def FixP(m):
+############FIXES Π###########	
+#doesn't work with lowercase after Π
+def IsFixP(m):
 	"""
 	This function examines a word to see whether is required to fix the Π character that is misspelled.
 	It is called by a regular expression function (re.sub) in FixCommonErrors()
 	It returns the original expression if the checked word is not in the dictionary,
 	otherwise it returns the word without the Π fixed
 	"""
-	FixP='Π'+m.group(2)
+	FixP="Π"+m.group(2)
 	FixP2=m.group(1)+m.group(2)
+
 	if spell(FixP2):
-		return(FixP2)
+		return(m.group(0))
 	elif spell(FixP):
 		print("FixP removed from: ", FixP)
-		return(FixP)
+		return ('Π'+m.group(2))
 	else:
 		return(m.group(0))
-
 
 
 		#Fixes Π in words that are misspelled
 		if dictExists == True:
-			CorrectText("Π fixes",r"(ΓΙ|Γΐ|ΙΙ|II|I\ I|I\ Ι|ΓΤ|ΙΊ|Ιί)[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", FixP)
+			CorrectText("Π fixes",r"(1\ Ι|1\ Ι|1Ι|1I|ΓΙ|Γΐ|ΙΙ|II|Ι\ Ι|ΓΤ|ΙΊ|Ιί)[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", IsFixP)
 
+		
 ############FIXES ύ το έ in words###########
 
-def FixE(m):
+############ FIXES έ ###########		
+def IsFixE(m):
 	"""
-	This function examines a hyphenated word to see whether the hyphen is required.
+	This function examines a word to see whether is required to fix the έ character that is misspelled.
 	It is called by a regular expression function (re.sub) in FixCommonErrors()
-	It returns the original expression if the non-hyphenated word is not in the dictionary,
-	otherwise it returns the word without the hyphen
+	It returns the original expression if the checked word is not in the dictionary,
+	otherwise it returns the word without the Π fixed
 	"""
-	FixE=m.group(1)+'έ'+m.group(2)
-	if spell(FixE):
+	FixE=m.group(1)+"έ"+m.group(2)
+	FixE2=m.group(1)+m.group(2)
+	if spell(FixE2):
+		return(m.group(0))
+	elif spell(FixE):
 		print("FixE removed from: ", FixE)
-		return(FixE)
+		return(m.group(1)+"έ"+m.group(2))
 	else:
 		return(m.group(0))
 
-		#Removes hyphens from words that should not be hyphenated
+
+		#Fixes έ in words that are misspelled
 		if dictExists == True:
-			CorrectText("έ fixes",r"(\w+)[ ]?ύ[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", FixE)
-
-
-		if not html == html_orig: bk.writefile(id, html)	#If the text has changed then write the amended text to the book
-
-			
+			CorrectText("έ fixes",r"(\w+)[ ]?ύ[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", IsFixE)
