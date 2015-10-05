@@ -1,0 +1,511 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sys
+import re
+
+import os
+
+import tkinter
+import tkinter.ttk as tkinter_ttk
+import tkinter.constants as tkinter_constants
+import tkinter.filedialog as tkinter_filedialog
+from tkinter import messagebox
+from tkinter import *
+
+import config	#has global OpenQ, CloseQ, Apostrophe
+from Chapter import Chapters
+from ProcessHeaderTags  import cProcessHeaderTags
+
+text_type = str
+characterize = chr
+
+def SplitQuotes(m):
+	OpenAngularIndex = m.group(2).rfind('<')
+	CloseAngularIndex = m.group(2).rfind('>')
+	if CloseAngularIndex < OpenAngularIndex:
+		return(m.group())
+		
+	tagList=re.findall(r"<(.*?)>", m.group(2)) #Gets tags without the leading < and ending > into a list
+	startPos=0
+	while startPos < len(tagList):
+		openTag=tagList[startPos]
+		if "/" in openTag:
+			startPos=startPos+1
+		else:
+			checkPos = startPos + 1
+			closeTag = "/" + openTag
+			if "/span" in closeTag:
+				closeTag="/span"
+			while checkPos < len(tagList) and tagList[checkPos] != closeTag:
+				checkPos = checkPos +1
+			if checkPos != len(tagList):
+				del tagList[checkPos]
+				del tagList[startPos]
+			else:
+				startPos=startPos+1
+	strForOpenQuote = ""
+	for tag in tagList:
+		strForOpenQuote = strForOpenQuote + '<' + tag+'>'
+	
+	strForClosingQuote = ""
+	for tag in reversed(tagList):
+		if 'span' in tag:
+			tag = 'span'
+		strForClosingQuote = strForClosingQuote + '</' + tag+'>'
+	testStr="<p"+m.group(1)+">"+m.group(2)+m.group(3)+strForClosingQuote+"</p>\n\n	<p>"+strForOpenQuote+m.group(5)+m.group(6)+"</p>"
+	return(testStr)
+
+def checkQuotes(m):
+	"""
+	This function replaces two adjacent curly quote marks with the appropriate double quote mark
+	It is called by a regular expression function (re.sub) in FixCommonErrors()
+	"""
+	if "‘" in m.group():  #Open single curly quote
+		return  ("“")
+	elif  "’" in m.group(): #closisng single curly quote
+		return  ("”")
+	return(m.group())
+
+def CheckApostrophe(m):
+	global Apostrophe, OpenQ
+	"""
+	Some words are misformed when the apostrophe is taken to be part of that word eg "Tve"
+	This function corrects such words, adds an apostrophe and if there are quote marks in
+	front of the word, the correct quotes are included using the quotes in the file config.sys
+	It is called by a regular expression function (re.sub) in FixCommonErrors()
+	"""
+	if m.group(2) == "IVe":
+		return (config.OpenQ+"I"+config.Apostrophe+"ve")
+	if m.group(2) == "Tve":
+		return (config.OpenQ+"I"+config.Apostrophe+"ve")
+	if m.group(2) == "Fd":
+		return (config.OpenQ+"I"+config.Apostrophe+"d")
+	if m.group(2) == "Td":
+		return (config.OpenQ+"I"+config.Apostrophe+"d")
+	if m.group(2) == "Til":
+		return (config.OpenQ+"I"+config.Apostrophe+"ll")
+	if m.group(2) == "Fve":
+		return (config.OpenQ+"I"+config.Apostrophe+"ve")
+	if m.group(2) == "Vm":
+		return (config.OpenQ+"I"+config.Apostrophe+"m")
+	if m.group(2) == "Fm":
+		return (config.OpenQ+"I"+config.Apostrophe+"m")
+	if m.group(2) == "Vm":
+		return (config.OpenQ+"I"+config.Apostrophe+"m")
+	if m.group(2) == "Tm":
+		return (config.OpenQ+"I"+config.Apostrophe+"m")
+	else:
+		return (m.group())
+
+def ReadDictionary():
+	"""
+	This function populates a dictionary called spellDict from a list of words in a text file.
+	The text file is located at F:\\Programming\\Python\\WordDictionary.txt.
+	It is called by processHTML()
+	It returns True if the file exists, totherwise it returns fale.
+	"""
+	global spellDict
+	global dictPath
+	
+	spellDict = {}	#Initalise dictionary
+	try:
+		f=open(dictPath, 'r', encoding='utf-8')
+	except IOError:
+		showerror(title='WARNING', message='Cannot read dictionary file', detail='Please ensure you have a dictionary installed', icon='"warning"')
+	else:
+		for line in f:
+			spellDict[line.rstrip('\n')] = True	#strip line breaks and add to dictionary as a key
+		f.close()
+	return()
+
+def spell(aword):
+	"""
+	This function checks whether a word is in the spelling dictionary, spellDict{}.
+	It is called by the function IsHyphenated()
+	It returns True if found, otherwise it returns False.
+	The parameter is the word to check
+	"""
+	global spellDict
+	
+	if aword in spellDict:
+		return(True)
+	else:
+		return(False)
+
+def IsHyphenated(m):
+	"""
+	This function examines a hyphenated word to see whether the hyphen is required.
+	It is called by a regular expression function (re.sub) in FixCommonErrors()
+	It returns the original expression if the non-hyphenated word is not in the dictionary,
+	otherwise it returns the word without the hyphen
+	"""
+	HyphenRemoved=m.group(1)+m.group(2)
+	if spell(HyphenRemoved):
+		print("Hyphen removed from: ", HyphenRemoved)
+		return(HyphenRemoved)
+	else:
+		return(m.group(0))
+
+############ FIXES Π ###########		
+def IsFixP(m):
+	"""
+	This function examines a word to see whether is required to fix the Π character that is misspelled.
+	It is called by a regular expression function (re.sub) in FixCommonErrors()
+	It returns the original expression if the checked word is not in the dictionary,
+	otherwise it returns the word without the Π fixed
+	"""
+	FixP="Π"+m.group(2)
+	FixP2=m.group(1)+m.group(2)
+
+	if spell(FixP2):
+		return(m.group(0))
+	elif spell(FixP):
+		print("FixP removed from: ", FixP)
+		return ('Π'+m.group(2))
+	else:
+		return(m.group(0))
+
+
+############ FIXES έ ###########		
+def IsFixE(m):
+	"""
+	This function examines a word to see whether is required to fix the έ character that is misspelled.
+	It is called by a regular expression function (re.sub) in FixCommonErrors()
+	It returns the original expression if the checked word is not in the dictionary,
+	otherwise it returns the word without the Π fixed
+	"""
+	FixE=m.group(1)+"έ"+m.group(2)
+	FixE2=m.group(0)
+	if spell(FixE2):
+		return(m.group(0))
+	elif spell(FixE):
+		print("FixE removed from: ", FixE)
+		return(m.group(1)+"έ"+m.group(2))
+	else:
+		return(m.group(0))
+		
+		
+def ProcessItalics():
+	global html
+
+#Remove classes from <i> tags
+	html = re.sub(r'<i class=.*?>', r'<i>', html)	
+
+#1. Insert space after </i> if this tag is followed by an alpahnumeric
+	html = re.sub(r'</i>([a-zA-z0-9])', r'</i> \1', html)
+
+#2. Move punctuation outside </i> and remove space in front of it
+	html = re.sub(r'[ ]?(,|\.|\!|,”|!”|\?”|\.”|”|"|,"|\!"|\?"|\."|’|\?)[ ]?</i>', r'</i>\1', html)
+
+#3. Remove space (if present) following <i> and insert before <i>
+	html = re.sub(r'(\.|!|,|;|:|([a-zA-Z0-9]))<i>[ ]?', r'\1 <i>', html)
+
+#4. Put quotes before <i>
+	html = re.sub(r'<i>(“|")', r'\1<i>', html)
+
+#5. Replace </i> <i> with a space
+	#html = re.sub(r'</i> <i>', r' ', html)
+	html = re.sub(r'</i>(,?[ ]?)<i>', r' ', html)
+	return (0)
+
+def ReplaceHTMLCode():
+	global html
+	CorrectText("Replaced HTML code (&mdash;)", '&mdash;', r'—')
+	CorrectText("Replaced HTML code (&#8212;)", '&#8212;', r'—')
+	CorrectText("Replaced HTML code (&ndash;)", '&ndash;',  r"–")
+	CorrectText("Replaced HTML code (&#8211;)", '&#8211;',  r"–")
+	CorrectText("Replaced HTML code (&nbsp;)", '&nbsp;', r' ')
+	CorrectText("Replaced HTML code (&#8216;)", '&#8216;', r'‘')
+	CorrectText("Replaced HTML code (&#8217;)", '&#8217;', r'’')
+	CorrectText("Replaced HTML code (&#8220;)", '&#8220;', r'“')
+	CorrectText("Replaced HTML code (&#8221;)", '&#8221;', r'”')
+	CorrectText("Replaced HTML code (&lsquo;)", '&lsquo;', r'‘')
+	CorrectText("Replaced HTML code (&rsquo;)", '&rsquo;', r'’')
+	CorrectText("Replaced HTML code (&ldquo;)", '&ldquo;', r'“')
+	CorrectText("Replaced HTML code (&rdquo;)", '&rdquo;', r'”')
+	CorrectText("Replaced HTML code (&#39;)", '&#39;', r"'")
+	CorrectText("Replaced HTML code (&apos;)", '&apos;', r"'")
+	return (0)
+
+def FixFalseLineBreaks(allBreaks):
+#After running this, do a manual search/replace to find paragraphs that do not end with a punctuation mark using:
+#FIND: ([a-z])</p>\s+<p>
+#REPLACE:\1    There is a space after \1
+	global html
+
+	CorrectText("Fixed false line breaks:", r'-</p>\s+<p[^>]*>', r'-')
+	#html = re.sub(r'-</p>\s+<p[^>]*>', r'-', html)						#Fix join partially hyphenated word at end of paragraph to next paragraph
+
+	CorrectText("Fixed false line breaks:", r'(|</(i|b|span)>)</p>\s+<p[^>]*>[ ]?(((|<\2[^>]*>))[a-z])', r'\1 \3')
+	#Find paragraph starting in lower case and append to previous paragraph - this will not process lines that end with more than one HTML tag eg </i></span>.
+
+	#html = re.sub(r'(((Mr|Dr|Mrs|St)\.)|,)</p>\s+<p[^>]*>[ ]?', r'\1 ', html)	#Join paras ending with a title or comma to the next paragraph
+	CorrectText("Fixed false line breaks:", r'(((Mr|Dr|Mrs|St)\.)|,)</p>\s+<p[^>]*>[ ]?', r'\1 ')
+
+	if allBreaks == 'Yes':
+		CorrectText("Fixed false line breaks:", r'([a-z])</p>\s+<p[^>]*>([A-Z])', r'\1 \2')
+		#html = re.sub(r'([a-z])</p>\s+<p[^>]*>([A-Z])', r'\1 \2', html)
+		CorrectText("Fixed false line breaks:", r'([\u0370-\u03FF,\u1F00-\u1FFF,\'–’“”][</ib>]*)</p>\s+<p[^>]*>([<ib>]*[\u0370-\u03FF,\u1F00-\u1FFF,\'–’“”])', r'\1 \2')
+
+	return(0)
+
+def CorrectText(KeyText, pattern, replacement):
+	"""
+	This function uses regex expressions in pattern and replacement to change the contents of the html file.
+	The number of replacements are counted and stored in changedDict
+	This function is called by FixCommonErrors()
+	"""
+	global changedDict
+	global html
+	newHtml, replacements = re.subn(pattern, replacement, html)
+	if newHtml != html:
+		changedDict[KeyText]=changedDict.get(KeyText,0)+replacements
+		html = newHtml
+	return(0)
+
+def FixCommonErrors():
+	global html
+	global changedDict
+	global CloseQ
+
+	html = re.sub(r"([‘|'])?\b(Td|Tve|Fd|Til|Fve|Fm|Vm|Tm|IVe)\b", CheckApostrophe, html)
+
+	html = re.sub(r"('[ ]?')|(‘[ ]?‘)|(’[ ]?’)", checkQuotes, html)
+
+	#Fixes 'th' when PDFd as 'lli'
+	CorrectText("Changed lli to th", r'\blli(ink|e)\b', r'th\1')
+
+	#Fixes 'thing(s)' when PDFd as 'tiling(s)'
+	CorrectText("Changed tiling(s) to thing(s)", r'\b([t|T])iling([s]?)\b', r'\1hing\2')
+
+	#Fixes 'their' when PDFd as 'tlieir'
+	CorrectText("Changed tlieir to their", r'\b([t|T])lieir\b', r'\1heir')
+
+	#Fixes 'she' when PDFd as 'slie'
+	CorrectText("Changed slie to she", r'\b([s|S])lie\b', r'\1he')
+
+	#Fixes 'when' when PDFd as 'wlien'
+	CorrectText("Changed slie to when", r'\b([w|W])lien\b', r'\1hen')
+
+	#Removes <SPACE> in front of ? OR ! OR : OR ; OR ” [OR ’] OR "</p OR , OR ’</p OR _'_
+	CorrectText("Removed erroneous spaces", r'[ ](\?|!|:|;|”|"</p|,|’</p|’ )', r'\1')
+
+	#Fixes I followed by curly quotes by replacing I with !
+	CorrectText("Replaced I at end of line with exclamation mark", r'[ ]I(”|’)([ ]|</p)', r'!\1\2')
+
+	#Replaces opening apostrophe with closing apostrophe in shortened words eg ‘re nad ‘ve
+	CorrectText("Corrected apostrophes for shortened words", r'[ ]?‘(re|ve)[ ]?', r'’\1 ')
+
+	#Fixes direction of double quotes at start of paragraph and removes unecessary spaces
+	CorrectText("Corrected direction of double quotes and spaces at start of paragraphs", r'((<p[^>]*>)(|(<(i|b|span)[^>]*>)))[ ]?”[ ]?', r'\1“')	
+
+	#Fixes direction of single quote at start of paragraph and removes unecessary spaces
+	CorrectText("Corrected direction of single quotes and spaces at start of paragraphs", '((<p[^>]*>)(|(<(i|b|span)[^>]*>)))[ ]?’[ ]?', r'\1‘')
+
+	#Remove space after opening speech mark at start of paragraph
+	CorrectText("Removed space after opening speech mark at start of paragraph", r'((<p[^>]*>(|(<(i|b|span)[^>]*>)))(\'|‘|"|“|))[ ]', r'\1')
+
+	#Fixes errors where '11 appears instead of 'll
+	CorrectText("Replaced '11 with 'll", r'[ ]?[‘|’](11[ ]?)', r'’ll ')
+	
+	#Fixes errors where ‘11 or ’11 appears instead of 'll
+	CorrectText("Replaced ‘11 or ’11 with 'll", r"[ ]?'11[ ]?", r"'ll ")
+
+	#Correct direction of apostrophe for expressions such as won‘t
+	CorrectText("Corrected direction of apostrophe for expressions such as won‘t", r'‘(t|m|d|s|ll) ', r'’\1 ')
+
+	#Remove all spaces in front of a closing </p...> tag
+	CorrectText("Spaces removed in front of a closing </p...> tag", r'[ ]+</p', r'</p')
+
+	#Replace space in front of Ve with an apostrophe and lower case Ve
+	CorrectText("Corrected errors of the type:‘Ve", r'([\'"‘“ ])(I|[Yy]ou|[Ww]e)[ ]Ve[ ]', r'\1\2’ve ')
+
+	#Remove space in front of apostrophe'd specified expressions eg   're,  ’ve,  'd
+	CorrectText("Removed space in front of apostrophe'd specified expressions eg 're", r" (’|')(re|ve|t|m|d|s|ll) ", r"\1\2 ")
+
+	#Remove space after opening curly quote(s)
+	CorrectText("Removed space after opening curly quote(s)", r'(‘|“) ', r'\1')
+
+	#Fixes o ‘clock problems
+	CorrectText("Corrected o ‘clock errors", r" o[ ]?‘clock", r" o’clock")
+
+	#Fixes o 'clock problems
+	CorrectText("Corrected o 'clock errors", r" o[ ]?'clock", r" o'clock")
+
+	#Fixes apostrophes in wrong direction
+	CorrectText("Corrected apostrophes in wrong direction", r' ‘(er|til|cept|Taint|tis|specially|twas|bout|old|ow|im|ad|eard|ave|ome)([ ,]?)', r' ’\1\2')
+
+	#Replace <space><hypen><space><close quotes> with <long hypen><close quotes>
+	CorrectText("Fixed short hyphen and or space in front of closing quotes", r'[ ]?(-|—)[ ]?(”|’)', r'—\2')
+	
+
+	#Replace a series of short/long hyphens by one long hyphen - produces error if ,!-- or Fragment-- appears in file
+	CorrectText("Replaced a series of short/long hyphens with one long hyphen", r'(?s)[-—]{2,}(?!.*<body[^>]*>)', r'—')
+
+	#Replaces opening apostrophe with closing apostrophe in shortened words
+	CorrectText("Replaced opening apostrophe with closing apostrophe in shortened words", r'[ ]?‘(em|im|cause|er)([ ]?)', r' ’\1\2')
+
+	#Fixes quotes that are together & should be on separate lines
+	CorrectText("Quotes for different people split into separate lines", r"""<p(.*?)>(.*?)("|'|’|”)([ ]|&nbsp;)?("|'|‘|“)(.*?)</p>""", SplitQuotes)
+
+	#Fixes quotes that are the wrong way round at end of paragraph and removes extraneous white space
+	CorrectText("Fixes direction of quotes at end of paragraph", r'(\s+)?(‘|“)(\s+)?</p', config.CloseQ+'</p')
+
+#------------------------ Greek character corrections -------------
+
+	#Fixes '…' when PDFd as ...
+	CorrectText("Changed ... to …", r'\.\.\.', r'…')
+
+	#Fixes 'η' when PDFd as ΐ]
+	CorrectText("Changed ΐ] to η", r'ΐ]', r'η')
+	
+	#Fixes 'στη' when PDFd as σιη
+	CorrectText("Changed σιη to στη", r'σιη', r'στη')
+
+	#Fixes 'στ(η|ο|ον|α|ις|ην)' when PDFd as  '"οτ(η|ο|ον|α|ις|ην)'
+	CorrectText("Changed οτ(η|ο|ον|α|ις|ην) to στ(η|ο|ον|α|ις|ην)", r' οτ(η|ο|ον|α|ις|ην) ', r' στ\1 ')
+
+	#Fixes 'των' when PDFd as  'τ(οι|οι)ν'
+	CorrectText("Changed τ(οι|ιο)ν to των", r' τ(οι|ιο)ν ', r' των ')
+
+	#Fixes 'ού' when PDFd as  'οιί'
+	CorrectText("Changed οιί to ού", r'οιί', r'ού')
+
+	#Fixes 'στις' when PDFd as σιις
+	CorrectText("Changed σιις to στις", r'σιις', r'στις')
+
+	#Fixes 'στ(η|ο|ον|ην)' when PDFd as οτ(η|ο|ον|ην)
+	CorrectText("Changed οτ(η|ο|ον|ην) to στ(η|ο|ον|ην)", r' οτ(η|ο|ον|ην) ', r'στ\1')
+
+	#Fixes 'στ(ο|ου|α)' when PDFd as  σι(ο|ου|α)
+	CorrectText("Changed σι(ο|ου|α) to στ(ο|ου|α)", r' σι(ο|ου|α)', r'στ\1')
+
+	#Fixes 'ώ' when PDFd as ο'ι
+	CorrectText("Changed ο'ι to ώ", r'(ο\'ι|\(ί\))', r'ώ')
+	
+	#Fixes 'Άκουσ' when PDFd as Ακόυσ
+	CorrectText("Changed Ακόυσ to Άκουσ", r'Ακόυσ', r'Άκουσ')
+	
+	#Fixes 'γι’' when PDFd as γΓ,γΡ
+	CorrectText("Changed γΓ γΡ to γι’", r'(γΓ|γΡ)', r'γι’')
+
+	#Fixes 'ντι' when PDFd as νπ
+	CorrectText("Changed νπ to ντι", r'νπ', r'ντι')
+	
+	#Fixes 'Γι’' when PDFd as ΓΓ
+	CorrectText("Changed ΓΓ to Γι’", r'ΓΓ ', r'Γι’ ')
+
+	#Fixes 'σχεδίαζ' when PDFd as σχέδιαζ
+	CorrectText("Changed σχέδιαζ to σχεδίαζ", r'σχέδιαζ', r'σχεδίαζ')
+	
+	#Fixes '\u0388' when PDFd as 'E "E
+	CorrectText("Changed 'E,\"E to \u0388", r'(\'|\")(\u0395)', r'Έ')
+
+	#Fixes \u038E when PDFd as 'Y or "Y
+	CorrectText("Changed 'Y,\"Y to \u038E", r'(\'|\")(\u03A5)', r'Ύ')
+
+	#Fixes \u038A when PDFd as 'I or "I
+	CorrectText("Changed 'I,\"I to \u038A", r'(\'|\")(\u0399)', r'Ί')
+
+	#Fixes \u038C when PDFd as 'O or "O
+	CorrectText("Changed 'O,\"O to \u038C", r'(\'|\")(\u039F)', r'Ό')
+
+	#Fixes \u0386 when PDFd as 'A or "A
+	CorrectText("Changed 'A,\"A to \u0386", r'(\'|\")(\u0391)', r'Ά')
+
+	#Fixes \u0389 when PDFd as 'H or "H
+	CorrectText("Changed 'H,\"H to \u0389", r'(\'|")(\u0397)', r'Ή')
+
+	#Fixes \u038F when PDFd as '\u03C9 or "\u03C9
+	CorrectText("Changed '\u03C9,\"\u03C9 to \u038F", r'(\'|\")(\u03C9)', r'Ώ')
+
+	#Fixes \u03CD when PDFd as \u03B0
+	CorrectText("Changed \u03CD to \u03B0", r'ΰ', r'ύ')
+
+	#Fixes \u03CD when PDFd as \u03B0
+	CorrectText("Changed ε' to έ", r'ε\'', r'έ')
+
+	#Fixes ς Character when PDFd as ςCharacter
+	CorrectText("Changed ςCharacter to ς Character", r'ς([\u0370-\u03CE])', r'ς \1')
+
+#--------------------(NEEDS FURTHER TESTING)---------------
+	CorrectText("Corrected w<sup>..</sup>", r"""w<sup>[^>]+?>""", r'w')
+	#CorrectText("Corrected <sup>5 and <sup>9", r"""<sup>[59]</sup>""", r'’')
+	#CorrectText("Corrected <sup>6</sup>", r"""<sup>6</sup>""", r'‘')
+	#CorrectText("Corrected / with quote mark", r"""(?s)([^<|>])(/)(?![^<>]*>)(?!.*<body[^>]*>)""", r'\1’')
+	#CorrectText("Corrected / with quote 'I'", r""" / """, r' I ')	#NB Could be 1 on more rare occassions
+	return(0)
+
+
+def processHTML(bk, prefs, IDlist):
+	global html,Apostrophe
+	global changedDict
+	global dictPath
+
+	dictPath = prefs['DictFile']
+
+	if os.path.isfile(dictPath):
+		dictExists = True
+		ReadDictionary()
+	else:
+		dictExists = False
+
+	if (prefs['JoinParagraphs'] == 'No'):
+		messagebox.showwarning('WARNING','Please do a manual search for false line endings')
+
+	changedDict={}	#Stores changes made and number of occurences
+
+	for id in IDlist:
+		html = bk.readfile(id)					#Read the section into html
+		if not isinstance(html, text_type):		#If the section is not str
+			html = text_type(html, 'utf-8')		#then sets its type to 'utf-8'
+		html_orig = html						#Copy the result to html_orig
+
+		if prefs['ReplaceHTMLCode'] == 'Yes' : ReplaceHTMLCode()
+		FixCommonErrors()
+
+		if prefs['WordListDirectory'] !="":
+			try:
+				f=open(prefs['WordListDirectory'], 'r')
+			except IOError:
+				print("File open error")
+			else: 
+				for line in f:
+					mispelt, correctSpell =line.split("|")
+					correctSpell = correctSpell.strip("\n")	#strip newline from correct version of word
+					mispeltWord=r"\b"+mispelt+r"\b"
+					CorrectText("Changed "+mispelt+" to "+correctSpell, mispeltWord, correctSpell)
+				f.close()
+
+		if prefs['ProcessItalics']  == 'Yes': ProcessItalics()
+		if Chapters.cs["ProcessChapter"] == True:
+			chapDialog = Chapters()
+			html=chapDialog.processChapterTitle(html)
+
+		FixFalseLineBreaks(prefs['JoinParagraphs'])
+		#Removes hyphens from words that should not be hyphenated
+		if dictExists == True:
+			CorrectText("Hyphens removed",r"(?s)(\w+)[ ]?-[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", IsHyphenated)
+
+		#Fixes Π in words that are misspelled
+		if dictExists == True:
+			CorrectText("Π fixes",r"(1\ Ι|1\ Ι|1Ι|1I|ΓΙ|Γΐ|ΙΙ|II|Ι\ Ι|ΓΤ|ΙΊ|Ιί)[ ]?(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", IsFixP)
+
+		#Fixes έ in words that are misspelled
+		if dictExists == True:
+			CorrectText("έ fixes",r"(\w+)ύ(\w+)(?![^<>]*>)(?!.*<body[^>]*>)", IsFixE)
+		
+			
+		if cProcessHeaderTags.processHeadersFlag:
+			processHeaderTagsDlg = cProcessHeaderTags()
+			html = processHeaderTagsDlg.simplifyParaTags(html)
+
+		if not html == html_orig: bk.writefile(id, html)	#If the text has changed then write the amended text to the book
+
+	print("\nChanges made\n===============\n")
+
+	for k, v in changedDict.items():
+		if v>0:
+			print(k, v)	    # Display key and value.
+	return(0)
